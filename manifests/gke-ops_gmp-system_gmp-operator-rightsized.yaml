@@ -1,0 +1,43 @@
+# ====================================================================
+# Right-sized Manifest for gmp-operator (gmp-system)
+# Cluster: gke-ops | Location: europe-north1
+# Status: UNDERPROVISIONED | Safety Buffer: 15.0%
+# CPU Change: 1m -> 10m (+900.0%)
+# Memory Change: 15Mi -> 41Mi (+168.7%)
+# ====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gmp-operator
+  namespace: gmp-system
+  labels:
+    app.kubernetes.io/name: gmp-operator
+    app.kubernetes.io/managed-by: gke-rightsize-adk-agent
+  annotations:
+    rightsize.gke.io/last-updated: '2026-10-02T14:53:05Z'
+    rightsize.gke.io/cluster: gke-ops
+    rightsize.gke.io/previous-cpu: 1m
+    rightsize.gke.io/previous-memory: 15Mi
+    rightsize.gke.io/savings-status: UNDERPROVISIONED
+    rightsize.gke.io/safety-buffer: 15.0%
+    rightsize.gke.io/spot-eligible: 'false'
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gmp-operator
+  template:
+    metadata:
+      labels:
+        app: gmp-operator
+    spec:
+      containers:
+      - name: operator
+        image: gcr.io/gke-ops/gmp-operator:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 41Mi
+          limits:
+            cpu: 20m
+            memory: 64Mi

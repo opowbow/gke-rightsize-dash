@@ -1,0 +1,14 @@
+# Strategic Merge Patch for ccc-demo-app
+# Apply with: kubectl patch deployment ccc-demo-app -n default --patch-file ccc-demo-app-patch.yaml
+spec:
+  template:
+    spec:
+      containers:
+      - name: demo-container
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 20m
+            memory: 64Mi

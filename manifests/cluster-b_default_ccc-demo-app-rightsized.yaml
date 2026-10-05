@@ -1,0 +1,63 @@
+# ====================================================================
+# Right-sized Manifest for ccc-demo-app (default)
+# Cluster: cluster-b | Location: us-central1
+# Status: OVERPROVISIONED | Safety Buffer: 15.0%
+# CPU Change: 600m -> 10m (-98.3%)
+# Memory Change: 1900Mi -> 32Mi (-98.3%)
+# Spot VM Configuration: ENABLED (GKE Provisioning: Spot)
+# Estimated Spot Additional Savings: $0.28/mo
+# WARNING: Spot VMs are subject to 30s preemption. Replicas set to >= 2 with 25s grace period.
+# ====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ccc-demo-app
+  namespace: default
+  labels:
+    app.kubernetes.io/name: ccc-demo-app
+    app.kubernetes.io/managed-by: gke-rightsize-adk-agent
+  annotations:
+    rightsize.gke.io/last-updated: '2026-10-02T14:52:49Z'
+    rightsize.gke.io/cluster: cluster-b
+    rightsize.gke.io/previous-cpu: 600m
+    rightsize.gke.io/previous-memory: 1900Mi
+    rightsize.gke.io/savings-status: OVERPROVISIONED
+    rightsize.gke.io/safety-buffer: 15.0%
+    rightsize.gke.io/spot-eligible: 'true'
+    rightsize.gke.io/spot-provisioning: Spot
+    rightsize.gke.io/spot-est-savings: $0.28/mo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ccc-demo-app
+  template:
+    metadata:
+      labels:
+        app: ccc-demo-app
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-provisioning: Spot
+      terminationGracePeriodSeconds: 25
+      tolerations:
+      - key: cloud.google.com/gke-spot
+        operator: Equal
+        value: 'true'
+        effect: NoSchedule
+      containers:
+      - name: demo-container
+        image: gcr.io/cluster-b/ccc-demo-app:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
+          limits:
+            cpu: 20m
+            memory: 64Mi
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 5

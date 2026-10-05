@@ -1,0 +1,63 @@
+# ====================================================================
+# Right-sized Manifest for vpa-rightsizer-agent (default)
+# Cluster: gke-ops | Location: europe-north1
+# Status: OVERPROVISIONED | Safety Buffer: 15.0%
+# CPU Change: 250m -> 10m (-96.0%)
+# Memory Change: 512Mi -> 766Mi (+49.6%)
+# Spot VM Configuration: ENABLED (GKE Provisioning: Spot)
+# Estimated Spot Additional Savings: $1.91/mo
+# WARNING: Spot VMs are subject to 30s preemption. Replicas set to >= 2 with 25s grace period.
+# ====================================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vpa-rightsizer-agent
+  namespace: default
+  labels:
+    app.kubernetes.io/name: vpa-rightsizer-agent
+    app.kubernetes.io/managed-by: gke-rightsize-adk-agent
+  annotations:
+    rightsize.gke.io/last-updated: '2026-10-02T14:53:00Z'
+    rightsize.gke.io/cluster: gke-ops
+    rightsize.gke.io/previous-cpu: 250m
+    rightsize.gke.io/previous-memory: 512Mi
+    rightsize.gke.io/savings-status: OVERPROVISIONED
+    rightsize.gke.io/safety-buffer: 15.0%
+    rightsize.gke.io/spot-eligible: 'true'
+    rightsize.gke.io/spot-provisioning: Spot
+    rightsize.gke.io/spot-est-savings: $1.91/mo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: vpa-rightsizer-agent
+  template:
+    metadata:
+      labels:
+        app: vpa-rightsizer-agent
+    spec:
+      nodeSelector:
+        cloud.google.com/gke-provisioning: Spot
+      terminationGracePeriodSeconds: 25
+      tolerations:
+      - key: cloud.google.com/gke-spot
+        operator: Equal
+        value: 'true'
+        effect: NoSchedule
+      containers:
+      - name: agent
+        image: gcr.io/gke-ops/vpa-rightsizer-agent:latest
+        resources:
+          requests:
+            cpu: 10m
+            memory: 766Mi
+          limits:
+            cpu: 20m
+            memory: 958Mi
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - sleep 5

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GKE Workload Rightsizing & Spot VM Dashboard</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☸️</text></svg>">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="brand-icon">☸️</div>
+      <div>
+        <div class="brand-title">GKE Rightsizing & FinOps Platform</div>
+        <div class="brand-subtitle">Autonomous VPA Telemetry & Spot VM Advisor</div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <span class="spot-pill" style="border-color: rgba(56, 189, 248, 0.4); color: #bae6fd;">
+        ☁️ Project: <strong id="header-project-id">Connected</strong> <span id="header-location"></span>
+      </span>
+      <button id="btn-batch-rightsize" class="btn btn-success btn-sm">
+        ⚡ Batch Rightsize All
+      </button>
+      <button id="btn-refresh" class="btn btn-secondary btn-sm">
+        🔄 Refresh Telemetry
+      </button>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- KPI Summary Grid -->
+    <section class="kpi-grid">
+      <div class="kpi-card green">
+        <div class="kpi-header">
+          <span class="kpi-title">Est. Monthly Savings</span>
+          <span class="kpi-icon">💰</span>
+        </div>
+        <div class="kpi-value" id="kpi-savings">$0.00</div>
+        <div class="kpi-subtext">On-demand rightsizing optimization</div>
+      </div>
+
+      <div class="kpi-card purple">
+        <div class="kpi-header">
+          <span class="kpi-title">Spot VM Potential</span>
+          <span class="kpi-icon">⚡</span>
+        </div>
+        <div class="kpi-value" id="kpi-spot">+$0.00</div>
+        <div class="kpi-subtext"><span class="highlight" id="kpi-spot-count">0</span> stateless workloads eligible</div>
+      </div>
+
+      <div class="kpi-card blue">
+        <div class="kpi-header">
+          <span class="kpi-title">Annualized Run-Rate</span>
+          <span class="kpi-icon">📈</span>
+        </div>
+        <div class="kpi-value" id="kpi-annual">$0.00</div>
+        <div class="kpi-subtext">Total projected 12-month savings</div>
+      </div>
+
+      <div class="kpi-card orange">
+        <div class="kpi-header">
+          <span class="kpi-title">Workload Health</span>
+          <span class="kpi-icon">⚖️</span>
+        </div>
+        <div class="kpi-value" style="font-size: 1.5rem;">
+          <span style="color: var(--accent-green);"><span id="kpi-over">0</span> Over</span> / 
+          <span style="color: var(--accent-orange);"><span id="kpi-under">0</span> Under</span>
+        </div>
+        <div class="kpi-subtext">Over-provisioned vs OOM risk</div>
+      </div>
+    </section>
+
+    <!-- Spot VM Feasibility & Golden Path Advisory Banner -->
+    <section class="spot-banner">
+      <div class="spot-banner-icon">⚡</div>
+      <div class="spot-banner-content">
+        <h4>GKE Spot VM Golden Path Advisory</h4>
+        <p>
+          Stateless application workloads can achieve an additional <strong>60% to 91% cost discount</strong> by running on GKE Spot VMs.
+          Our analyzer automatically evaluates workload controller kinds, namespaces, and replica configurations to identify safe candidates.
+        </p>
+        <div class="spot-checklist">
+          <span class="spot-pill">✅ Stateless Deployments</span>
+          <span class="spot-pill">✅ Replicas &ge; 2 for HA</span>
+          <span class="spot-pill">✅ terminationGracePeriodSeconds: 25</span>
+          <span class="spot-pill">✅ preStop sleep 5 hook</span>
+          <span class="spot-pill">⚠️ 30-second preemption notice</span>
+          <span class="spot-pill">🛡️ System namespaces excluded</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filter & Controls Bar -->
+    <section class="filter-bar">
+      <div class="filter-group">
+        <label class="filter-label" for="filter-cluster">Cluster</label>
+        <select id="filter-cluster">
+          <option value="">All Clusters</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label" for="filter-namespace">Namespace</label>
+        <select id="filter-namespace">
+          <option value="">All Namespaces</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label" for="filter-status">Optimization Status</label>
+        <select id="filter-status">
+          <option value="ALL">All Statuses</option>
+          <option value="OVERPROVISIONED">Overprovisioned (Wasteful)</option>
+          <option value="UNDERPROVISIONED">Underprovisioned (OOM Risk)</option>
+          <option value="BALANCED">Balanced</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label" for="filter-spot">Spot VM Suitability</label>
+        <select id="filter-spot">
+          <option value="">All Workloads</option>
+          <option value="ELIGIBLE">⚡ Spot Eligible Only</option>
+          <option value="INELIGIBLE">❌ Ineligible Only</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Safety Buffer Headroom</label>
+        <div class="slider-container">
+          <input type="range" id="buffer-slider" min="5" max="50" step="5" value="15">
+          <span class="buffer-value-display" id="buffer-val">15%</span>
+        </div>
+      </div>
+
+      <div class="filter-group search-input-wrapper">
+        <label class="filter-label" for="search-input">Search</label>
+        <input type="text" id="search-input" placeholder="Filter by workload, container, or namespace...">
+      </div>
+    </section>
+
+    <!-- Workloads Table Card -->
+    <section class="table-card">
+      <div class="table-header-bar">
+        <div class="table-header-title">
+          <span>Analyzed Workload Telemetry</span>
+          <span class="badge-count" id="workload-count">0</span>
+        </div>
+        <div style="font-size: 0.8125rem; color: var(--text-muted);">
+          Telemetry source: <code>kubernetes.io/autoscaler/container/*</code>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Workload</th>
+              <th>Cluster</th>
+              <th>Namespace</th>
+              <th>CPU (Current vs Rec)</th>
+              <th>Memory (Current vs Rec)</th>
+              <th>Status</th>
+              <th>Spot VM</th>
+              <th>Est. Savings</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="workloads-tbody">
+            <tr>
+              <td colspan="8" style="text-align: center; padding: 2rem;">Loading telemetry...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Interactive AI Assistant / Chat Drawer -->
+    <section class="assistant-panel">
+      <div class="assistant-header">
+        <div class="assistant-title">
+          <span>🤖</span>
+          <span>FinOps AI Platform Assistant</span>
+        </div>
+        <div style="font-size: 0.75rem; color: var(--text-muted);">Powered by Google ADK & Gemini 2.5 Flash</div>
+      </div>
+
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-bubble assistant">
+          Hello! I'm your GKE Platform Engineering & Rightsizing Assistant. I analyze live Vertical Pod Autoscaler telemetry across your clusters.
+          <br><br>
+          Click any quick question below or ask me about cost savings, Spot VM candidates, or OOM risks:
+          <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem;">
+            <button class="btn btn-secondary btn-sm" onclick="sendPromptChip('Which workloads can run on Spot VMs?')">
+              ⚡ Which workloads can run on Spot VMs?
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="sendPromptChip('What are our top cost saving opportunities?')">
+              💰 Top cost saving opportunities
+            </button>
+            <button class="btn btn-secondary btn-sm" onclick="sendPromptChip('Which workloads have OOM or throttling risks?')">
+              ⚠️ OOM and throttling risks
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <form id="chat-form" class="chat-input-bar">
+        <input type="text" id="chat-input" placeholder="Ask about rightsizing, Spot configurations, or cost projections...">
+        <button type="submit" class="btn btn-primary btn-sm">Send</button>
+      </form>
+    </section>
+
+  </main>
+
+  <!-- Manifest Modal -->
+  <div id="manifest-modal" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title" id="modal-workload-title">Workload Manifest</div>
+        <button id="modal-close" class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-controls">
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <label style="font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary);">Manifest Type:</label>
+            <label style="font-size: 0.8125rem; display: flex; align-items: center; gap: 0.25rem; cursor: pointer;">
+              <input type="radio" name="modal-manifest-type" value="deployment" checked> Deployment YAML
+            </label>
+            <label style="font-size: 0.8125rem; display: flex; align-items: center; gap: 0.25rem; cursor: pointer;">
+              <input type="radio" name="modal-manifest-type" value="patch"> Strategic Patch
+            </label>
+          </div>
+
+          <div class="modal-toggle-group">
+            <label class="toggle-switch" title="Injects nodeSelector, 25s termination grace period, tolerations, and replicas >= 2">
+              <input type="checkbox" id="modal-spot-toggle">
+              <span>⚡ Enable Spot VM Config</span>
+            </label>
+            <label class="toggle-switch">
+              <input type="checkbox" id="modal-limits-toggle" checked>
+              <span>Include Limits</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="code-wrapper">
+          <button id="btn-copy-yaml" class="btn btn-secondary btn-sm copy-button">📋 Copy</button>
+          <pre class="code-block" id="modal-yaml-code"># Generating YAML...</pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-download-yaml" class="btn btn-secondary btn-sm">📥 Download YAML</button>
+        <button id="btn-save-yaml" class="btn btn-primary btn-sm">💾 Save to manifests/</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    GKE Rightsizing & FinOps Platform Agent • Google ADK • Vertex AI • Cloud Monitoring
+  </footer>
+
+  <script src="/static/js/dashboard.js"></script>
+</body>
+</html>
